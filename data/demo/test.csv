@@ -1,0 +1,5 @@
+image_path,class_0,class_1,class_2,class_3
+data/demo/images/sample_00.png,1,0,0,0
+data/demo/images/sample_01.png,0,1,0,0
+data/demo/images/sample_02.png,0,0,1,0
+data/demo/images/sample_03.png,0,0,0,1

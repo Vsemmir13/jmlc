@@ -1,0 +1,58 @@
+# Minimal CPU config for local smoke test (no pretrained weights download).
+# Uses ResNet18 for speed; main demo config (config.yaml) uses EVA02.
+data:
+  train_path: "data/demo/train.csv"
+  test_path: "data/demo/test.csv"
+  num_classes: 4
+  resize: 224
+
+model:
+  name: "resnet18"
+  pretrained: false
+  checkpoint_path: null
+  head_type: "fc"
+  fc_activation: "gelu"
+
+loss:
+  name: "db_loss"
+  class_freq_path: null
+  beta: 0.9
+  focal_gamma: 1.3
+  focal_alpha: 0.5
+  map_param: 0.1
+  neg_scale: 1.3
+
+training:
+  batch_size: 2
+  num_epochs: 1
+  num_workers: 0
+  pin_memory: false
+  prefetch_factor: 2
+  use_bf16: false
+
+optimizer:
+  name: "adamw"
+  lr: 0.0001
+  weight_decay: 0.0
+  momentum: 0.9
+
+scheduler:
+  name: "cosine"
+  warmup_steps: 1
+  warmup_start_lr: 0.0
+  eta_min: 0.0
+
+evaluation:
+  eval_frequency: 1
+  metrics: ["accuracy", "f1_score", "precision", "recall"]
+
+checkpoint:
+  save_dir: "checkpoints/smoke"
+  final_checkpoint_path: "checkpoints/smoke/final_model.pth"
+  save_best: false
+  monitor_metric: "f1_score"
+
+wandb:
+  enabled: false
+
+device: "cpu"
