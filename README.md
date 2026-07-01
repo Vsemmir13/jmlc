@@ -1,14 +1,14 @@
-# JMLC: Multi-Label Image Classification
+# JMLC: Multilabel Image Classification
 
 Публичная воспроизводимая версия проекта для [**Junior ML Contest 2026**](https://ai.itmo.ru/junior_ml_contest): пайплайн
-multi-label классификации изображений на PyTorch с YAML-конфигурацией, обучением,
+multilabel классификации изображений на PyTorch с YAML-конфигурацией, обучением,
 валидацией, экспортом в ONNX и batch inference.
 
 Проект разработан в рамках работы в компании Sber и защищён NDA, поэтому публикуемая версия подготовлена с обезличенными данными и пропусками NDA кода: внутренние пути, интеграции и данные заменены на локальный demo-режим, но сохранена основная структура ML-пайплайна и код, достаточный для запуска.
 
 ## Что внутри
 
-- обучение multi-label классификатора изображений;
+- обучение multilabel классификатора изображений;
 - поддержка CSV-датасета с несколькими бинарными метками на изображение;
 - backbone на базе EVA02 для примера;
 - DB loss для работы с дисбалансом классов;
@@ -100,7 +100,7 @@ jmlc/
 - `src/dataset.py` — чтение CSV, загрузка изображений и аугментации;
 - `src/model.py` — сборка backbone и классификационной головы;
 - `src/losses.py` — DB loss;
-- `src/evaluator.py` — расчет метрик для multi-label задачи;
+- `src/evaluator.py` — расчет метрик для multilabel задачи;
 - `src/inferencer.py` — batch inference;
 - `src/export_onnx.py` — экспорт checkpoint в ONNX.
 
