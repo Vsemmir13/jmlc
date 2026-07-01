@@ -94,6 +94,12 @@ def main():
         world_size = 1
         use_ddp = False
     
+    # Load configuration before choosing the single-process device, so smoke
+    # configs can force CPU even on machines with CUDA.
+    if rank == 0:
+        print("Loading configuration...")
+    config = Config(args.config)
+
     # Initialize DDP if needed
     if use_ddp:
         backend = 'nccl' if torch.cuda.is_available() else 'gloo'
@@ -105,12 +111,7 @@ def main():
         else:
             device = torch.device('cpu')
     else:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    # Load configuration
-    if rank == 0:
-        print("Loading configuration...")
-    config = Config(args.config)
+        device = config.device
     
     # Override device from config if using DDP
     if use_ddp:

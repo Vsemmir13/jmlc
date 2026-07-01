@@ -1,5 +1,5 @@
 # Minimal CPU config for local smoke test (no pretrained weights download).
-# Uses ResNet18 for speed; main demo config (config.yaml) uses EVA02.
+# Uses a tiny local CNN for speed; main demo config (config.yaml) uses EVA02.
 data:
   train_path: "data/demo/train.csv"
   test_path: "data/demo/test.csv"
@@ -7,7 +7,7 @@ data:
   resize: 224
 
 model:
-  name: "resnet18"
+  name: "tiny_cnn"
   pretrained: false
   checkpoint_path: null
   head_type: "fc"

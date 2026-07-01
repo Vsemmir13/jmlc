@@ -121,7 +121,7 @@ class MultilabelInferencer:
             
             # Forward pass with bfloat16 mixed precision if enabled
             if self.use_bf16:
-                with autocast(dtype=torch.bfloat16):
+                with autocast(device_type=self.device.type, dtype=torch.bfloat16):
                     preds = self.model(images)
             else:
                 preds = self.model(images)
@@ -144,6 +144,7 @@ def run_eval(
     prefetch_factor=1,
     ):
     config = Config(config)
+    device = torch.device(device)
     
     model = create_model(
         num_classes=config.get('data.num_classes'),
@@ -154,7 +155,11 @@ def run_eval(
         device=device
     )
     
-    inferencer = MultilabelInferencer(model=model, device=device, use_bf16=(device == 'cuda'))
+    inferencer = MultilabelInferencer(
+        model=model,
+        device=device,
+        use_bf16=(device.type == 'cuda'),
+    )
     
     test_dataset = MultilabelImageInferenceDataset(
         rows=rows,
@@ -163,6 +168,10 @@ def run_eval(
         transform=MultilabelImageDataset.eval_transform(config.get('data.resize'))
     )
 
+    loader_kwargs = {}
+    if num_workers > 0:
+        loader_kwargs["prefetch_factor"] = prefetch_factor
+
     test_loader = DataLoader(
         test_dataset,
         shuffle=False,
@@ -170,12 +179,10 @@ def run_eval(
         drop_last=False,
         batch_size=batch_size,
         num_workers=num_workers,
-        prefetch_factor=prefetch_factor
+        **loader_kwargs,
     )
     
     all_paths, all_preds = inferencer.evaluate(test_loader)
     return all_paths, all_preds
-
-
 
 

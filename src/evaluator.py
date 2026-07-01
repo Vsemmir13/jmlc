@@ -150,14 +150,20 @@ class MultilabelEvaluator:
             )
         
         if "hamming_loss" in metrics:
-            results["hamming_loss"] = hamming_loss(all_labels, all_preds)
+            results["hamming_loss"] = hamming_loss(all_labels, all_preds_binary)
 
         if "roc_auc" in metrics:
-            results["roc_auc"] = roc_auc_score(all_labels.flatten(), all_preds.flatten())
+            try:
+                results["roc_auc"] = roc_auc_score(all_labels.flatten(), all_preds.flatten())
+            except ValueError:
+                results["roc_auc"] = float("nan")
 
         if "pr_auc" in metrics:
-            precision, recall, _ = precision_recall_curve(all_labels.flatten(), all_preds.flatten())
-            results["pr_auc"] = auc(recall, precision)
+            try:
+                precision, recall, _ = precision_recall_curve(all_labels.flatten(), all_preds.flatten())
+                results["pr_auc"] = auc(recall, precision)
+            except ValueError:
+                results["pr_auc"] = float("nan")
         
         # Per-class metrics
         if "per_class_f1" in metrics or "per_class" in metrics:

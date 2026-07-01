@@ -1,16 +1,42 @@
 """Dataset module for multilabel image classification."""
+from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
-import torchvision.transforms as transforms
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
+try:
+    import torchvision.transforms as transforms
+except ModuleNotFoundError as exc:
+    if exc.name not in {"torchvision", "_lzma"}:
+        raise
+    transforms = None
+
 DEFAULT_RESIZE = 480
+
+
+class BasicImageTransform:
+    """Small torchvision-free transform used by the smoke demo fallback."""
+
+    def __init__(self, resize: int, train: bool = False):
+        self.resize = resize
+        self.train = train
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        self.std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+    def __call__(self, image: Image.Image) -> torch.Tensor:
+        image = image.resize((self.resize, self.resize), Image.Resampling.BICUBIC)
+        if self.train and np.random.rand() < 0.1:
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        array = np.asarray(image, dtype=np.float32) / 255.0
+        tensor = torch.from_numpy(array).permute(2, 0, 1)
+        return (tensor - self.mean) / self.std
 
 
 class MultilabelImageDataset(Dataset):
@@ -19,7 +45,7 @@ class MultilabelImageDataset(Dataset):
     def __init__(
         self,
         data_path: str,
-        transform: Optional[transforms.Compose] = None,
+        transform: Optional[Any] = None,
         num_classes: Optional[int] = None,
         resize: int = DEFAULT_RESIZE,
         train: bool = False,
@@ -51,6 +77,8 @@ class MultilabelImageDataset(Dataset):
             self.num_classes = len(self.labels[0]) if len(self.labels) > 0 else 1
 
     def _get_train_transform(self) -> transforms.Compose:
+        if transforms is None:
+            return BasicImageTransform(self.resize, train=True)
         return transforms.Compose([
             transforms.Resize(
                 (self.resize, self.resize),
@@ -73,13 +101,15 @@ class MultilabelImageDataset(Dataset):
         ])
 
     @classmethod
-    def eval_transform(cls, resize) -> transforms.Compose:
+    def eval_transform(cls, resize) -> Any:
         """Build eval transforms without loading dataset data."""
         obj = cls.__new__(cls)
         obj.resize = resize
         return obj._get_default_transform()
 
-    def _get_default_transform(self) -> transforms.Compose:
+    def _get_default_transform(self) -> Any:
+        if transforms is None:
+            return BasicImageTransform(self.resize, train=False)
         return transforms.Compose([
             transforms.Resize(
                 (self.resize, self.resize),
@@ -217,21 +247,25 @@ def get_data_loaders(
     if num_workers > 0:
         loader_kwargs["prefetch_factor"] = prefetch_factor
 
+    train_batch_size = max(1, batch_size // world_size)
+    test_batch_size = max(1, train_batch_size * 2)
+    train_drop_last = len(train_dataset) >= train_batch_size
+
     # Create data loaders
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=batch_size // world_size,
+        batch_size=train_batch_size,
         shuffle=shuffle,
         sampler=train_sampler,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        drop_last=True,
+        drop_last=train_drop_last,
         **loader_kwargs,
     )
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
-        batch_size=(batch_size // world_size) * 2,
+        batch_size=test_batch_size,
         shuffle=False,
         sampler=test_sampler,
         num_workers=num_workers,
@@ -241,4 +275,3 @@ def get_data_loaders(
     )
 
     return train_loader, test_loader
-

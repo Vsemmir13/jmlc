@@ -30,11 +30,16 @@ def run_forward_pass(config_path: Path) -> None:
     from src.model import create_model
 
     config = Config(str(config_path))
+    checkpoint_path = ROOT / config.get(
+        "checkpoint.final_checkpoint_path",
+        "checkpoints/final_model.pth",
+    )
     model = create_model(
         num_classes=config.get("data.num_classes"),
         model_name=config.get("model.name"),
         fc_activation=config.get("model.fc_activation"),
         pretrained=config.get("model.pretrained", False),
+        checkpoint_path=str(checkpoint_path) if checkpoint_path.exists() else None,
         device=torch.device("cpu"),
     )
     model.eval()

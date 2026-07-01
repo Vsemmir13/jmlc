@@ -4,12 +4,47 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-import torchvision.models as models
+
+
+class TinyConvBackbone(nn.Module):
+    """Tiny local backbone for CPU smoke tests."""
+
+    def __init__(self):
+        super().__init__()
+        self.num_features = 64
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 16, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, self.num_features, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(self.num_features),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(1),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.features(x).flatten(1)
+
+
+def _torchvision_models():
+    try:
+        import torchvision.models as models
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "torchvision is required for torchvision backbones. "
+            "Use model.name='tiny_cnn' for the dependency-light smoke demo."
+        ) from exc
+    return models
 
 
 def _get_backbone_features(backbone: nn.Module, model_name: str) -> int:
     """Return backbone feature dimension and strip classifier head."""
     name = model_name.lower()
+    if hasattr(backbone, "num_features"):
+        return backbone.num_features
     if "resnet" in name or "resnext" in name or "vit_b_16" in name:
         n = backbone.fc.in_features
         backbone.fc = nn.Identity()
@@ -26,6 +61,9 @@ def _get_backbone_features(backbone: nn.Module, model_name: str) -> int:
 def _make_backbone(model_name: str, pretrained: bool) -> nn.Module:
     """Instantiate a backbone by name."""
     name = model_name.lower()
+    if "tiny_cnn" in name:
+        return TinyConvBackbone()
+    models = _torchvision_models()
     if "resnet50" in name:
         return models.resnet50(pretrained=pretrained)
     if "resnet18" in name:
@@ -39,6 +77,7 @@ def _make_backbone(model_name: str, pretrained: bool) -> nn.Module:
     if "vit_l_16" in name:
         return models.vit_l_16(pretrained=pretrained)
     if "csatv2" in name:
+        import timm
         return timm.create_model(
             "csatv2_21m.sw_r640_in1k",
             pretrained=pretrained,
@@ -155,4 +194,3 @@ def create_model(
             )
         model.load_checkpoint(checkpoint_path, device)
     return model.to(dtype=torch.float32)
-

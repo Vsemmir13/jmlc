@@ -1,33 +1,21 @@
-# Multilabel Image Classification with PyTorch
+# JMLC: Multi-Label Image Classification
 
-> Репозиторий для [Junior ML Contest 2026](https://ai.itmo.ru/junior_ml_contest).  
-> Лёгкий multilabel-классификатор изображений: YAML-конфиг, обучение, eval, ONNX export, batch inference.  
-> **Полное описание задачи, реализации и вклада — в PDF заявки** (3 стр.) и черновике [`docs/jmlc_project_description.md`](docs/jmlc_project_description.md).
+Публичная воспроизводимая версия проекта для [**Junior ML Contest 2026**](https://ai.itmo.ru/junior_ml_contest): пайплайн
+multi-label классификации изображений на PyTorch с YAML-конфигурацией, обучением,
+валидацией, экспортом в ONNX и batch inference.
 
-## Правовой статус и NDA
+Проект разработан в рамках работы в компании Sber и защищён NDA, поэтому публикуемая версия подготовлена с обезличенными данными и пропусками NDA кода: внутренние пути, интеграции и данные заменены на локальный demo-режим, но сохранена основная структура ML-пайплайна и код, достаточный для запуска.
 
-Проект разработан в рамках работы в компании **Sber / Sber AI** и защищён **NDA**. Публикуемая версия подготовлена для [Junior ML Contest 2026](https://ai.itmo.ru/junior_ml_contest) и содержит **обезличенное ядро ML**: multilabel-классификация, DB loss, EVA02-backbone, обучение, метрики, ONNX export и batch inference.
+## Что внутри
 
-Исходный код и методология разработаны в рамках рабочей деятельности и **принадлежат компании ПАО «Сбербанк» / экосистеме Sber AI**. Материалы проекта, включая архитектуру пайплайна, описание данных, таксономию классов, конфигурации prod-среды и интеграции с внутренними системами, **подпадают под режим NDA** и не могут быть опубликованы в полном объёме.
-
-Из публикации намеренно исключены:
-
-- внутренние хранилища данных и пути к файловым системам;
-- интеграции с корпоративными платформами (batch/map-reduce jobs, внутренние таблицы);
-- autolabel-пайплайны, промпты и агрегация разметки на prod-данных;
-- полная продуктовая таксономия классов и метрики на реальных пользовательских данных;
-- веса моделей, обученные на закрытых датасетах;
-- любые идентификаторы, позволяющие восстановить prod-инфраструктуру.
-
-**Сохранено и воспроизводимо в demo-режиме:** ядро ML — multilabel-классификация изображений, обучение (PyTorch), DB loss для дисбаланса классов, backbone EVA02, eval-метрики, экспорт в ONNX, batch-inference API на синтетических данных.
-
-Demo-данные синтетические (`class_0` … `class_N`). **Права на оригинальный код остаются у правообладателя**; публикация не означает transfer прав на код или модели третьим лицам. Использование вне рамок конкурса — только с разрешения правообладателя.
-
-На защите можно сказать:
-
-> «В prod решение обрабатывает большие объёмы данных; здесь показываю инженерное ядро, воспроизводимое локально через `python scripts/smoke_demo.py`.»
-
-Расширенное описание задачи и реализации для PDF: [`docs/jmlc_project_description.md`](docs/jmlc_project_description.md).
+- обучение multi-label классификатора изображений;
+- поддержка CSV-датасета с несколькими бинарными метками на изображение;
+- backbone на базе EVA02 для примера;
+- DB loss для работы с дисбалансом классов;
+- расчет multilabel-метрик на валидации;
+- экспорт модели в ONNX;
+- batch inference API;
+- синтетический demo-датасет и smoke test для быстрой проверки.
 
 ## Быстрый старт
 
@@ -36,60 +24,92 @@ pip install -r requirements.txt
 python scripts/smoke_demo.py
 ```
 
-Smoke test на CPU (~15 с): 1 эпоха обучения + forward pass на demo-данных. Конфиг: `config/smoke.yaml`.
+Smoke test запускается на CPU и выполняет короткое обучение на синтетических
+demo-данных из `data/demo/`. Конфиг для проверки: `config/smoke.yaml`; в нем
+используется маленький локальный CNN, чтобы быстрый старт не скачивал веса.
 
-## Установка и обучение
+## Обучение
 
 ```bash
 pip install -r requirements.txt
 
-# обучение (основной конфиг — EVA02, нужен GPU + timm для pretrained)
+# обучение по основному конфигу
 python -m src.main --config config.yaml
 
-# multi-GPU
+# multi-GPU запуск
 torchrun --nproc_per_node=2 src/main.py --config config.yaml
+```
 
-# экспорт в ONNX
+Основной конфиг `config.yaml` рассчитан на обучение с GPU. Быстрый локальный
+запуск без GPU удобнее проверять через `scripts/smoke_demo.py`.
+
+WandB опционален и по умолчанию отключен. Для логирования нужно задать
+`WANDB_API_KEY` и включить `wandb.enabled: true` в конфиге.
+
+## Экспорт в ONNX
+
+```bash
 python -m src.export_onnx \
     --checkpoint_path checkpoints/final_model.pth \
     --config config.yaml \
     --output checkpoints/model.onnx
 ```
 
-Wandb опционален (`wandb.enabled: false` по умолчанию). Для включения: `WANDB_API_KEY` + `enabled: true` в `config.yaml`.
-
 ## Формат данных
 
-CSV: первая колонка — путь к изображению, остальные — бинарные метки (0/1) для каждого класса.
+На вход используется CSV-файл: первая колонка содержит путь к изображению,
+остальные колонки — бинарные метки классов.
 
 ```csv
 image_path,class_0,class_1,class_2,class_3
 data/demo/images/sample_00.png,1,0,0,0
+data/demo/images/sample_01.png,0,1,0,0
 ```
 
-Demo: `data/demo/`. Перед своим обучением замените пути и `num_classes` в `config.yaml`.
+Для запуска на своих данных нужно заменить CSV-файлы, пути к изображениям и
+значение `num_classes` в конфиге.
 
 ## Структура проекта
 
-```
+```text
 jmlc/
-├── config.yaml          # основной конфиг (EVA02)
-├── config/smoke.yaml    # быстрый CPU-тест
-├── data/demo/           # синтетические данные
-├── docs/                # черновик текста для PDF
-├── scripts/smoke_demo.py
+├── config.yaml
+├── config/
+│   └── smoke.yaml
+├── data/
+│   └── demo/
+├── scripts/
+│   └── smoke_demo.py
 └── src/
-    ├── main.py          # точка входа
-    ├── trainer.py       # обучение (DDP, bf16, DB loss)
-    ├── dataset.py       # CSV + augmentations
-    ├── model.py         # backbone + FC head
-    ├── eva.py           # EVA02 (timm-compatible)
-    ├── losses.py        # DB loss
-    ├── evaluator.py     # multilabel-метрики
-    ├── inferencer.py    # batch inference
-    └── export_onnx.py   # деплой
+    ├── config.py
+    ├── dataset.py
+    ├── eva.py
+    ├── evaluator.py
+    ├── export_onnx.py
+    ├── inferencer.py
+    ├── losses.py
+    ├── main.py
+    ├── model.py
+    └── trainer.py
 ```
+
+## Основные компоненты
+
+- `src/main.py` — точка входа для обучения;
+- `src/trainer.py` — training loop, DDP, mixed precision, сохранение checkpoint;
+- `src/dataset.py` — чтение CSV, загрузка изображений и аугментации;
+- `src/model.py` — сборка backbone и классификационной головы;
+- `src/losses.py` — DB loss;
+- `src/evaluator.py` — расчет метрик для multi-label задачи;
+- `src/inferencer.py` — batch inference;
+- `src/export_onnx.py` — экспорт checkpoint в ONNX.
+
+## Публичная версия
+
+В репозитории нет закрытых данных, production-конфигураций, внутренних путей,
+ключей, сервисных интеграций и весов моделей, обученных на закрытых датасетах.
+Demo-данные синтетические и нужны только для проверки работоспособности кода.
 
 ## Автор
 
-Весь код в репозитории реализован **мной лично** (участником конкурса). Подробный перечень вклада — в PDF-описании проекта.
+Код публичной версии подготовлен для конкурсной подачи на Junior ML Contest 2026.
